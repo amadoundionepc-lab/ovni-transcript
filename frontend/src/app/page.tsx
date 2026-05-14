@@ -453,7 +453,18 @@ export default function Home() {
                 {error && (
                   <div className="flex items-start gap-2.5 p-3 bg-red-500/10 border border-red-500/20 rounded-xl mb-4 text-sm text-red-400">
                     <AlertCircle size={15} className="flex-shrink-0 mt-0.5" />
-                    {error}
+                    <div>
+                      {error.includes("no available captions") || error.includes("not a bot") ? (
+                        <>
+                          <p className="font-medium mb-1">YouTube is blocked on our server.</p>
+                          <p className="text-red-400/80">
+                            Download the audio for free on{" "}
+                            <a href="https://cobalt.tools" target="_blank" rel="noopener noreferrer" className="underline text-red-300 hover:text-white transition-colors">cobalt.tools</a>
+                            {" "}→ then use the <button onClick={() => setTab("file")} className="underline text-red-300 hover:text-white transition-colors">File tab</button>.
+                          </p>
+                        </>
+                      ) : error}
+                    </div>
                   </div>
                 )}
 
