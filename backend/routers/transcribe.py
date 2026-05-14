@@ -36,32 +36,24 @@ def run_url_job(job_id: str, url: str, language: str):
     try:
         is_youtube = any(d in url for d in ["youtube.com", "youtu.be"])
         if is_youtube:
+            # 1. Try native captions (fast, no Whisper needed)
             jobs[job_id]["status"] = "transcribing"
             result = fetch_youtube_transcript(url, language)
-            print(f"[youtube] transcript result: {'ok' if result else 'None'}", file=sys.stderr)
             if result:
                 title = "YouTube video"
                 try:
-                    import requests
-                    r = requests.get(
-                        "https://www.youtube.com/oembed",
-                        params={"url": url, "format": "json"},
-                        timeout=5,
-                    )
+                    import requests as req
+                    r = req.get("https://www.youtube.com/oembed", params={"url": url, "format": "json"}, timeout=5)
                     if r.ok:
                         title = r.json().get("title", title)
                 except Exception:
                     pass
                 jobs[job_id].update({"status": "done", "result": result, "title": title})
-            else:
-                jobs[job_id]["status"] = "error"
-                jobs[job_id]["error"] = (
-                    "This YouTube video has no available captions. "
-                    "Please download the video and use the File tab instead."
-                )
-            return
+                return
 
-        # Non-YouTube: download audio and transcribe with Whisper
+            # 2. Fallback: download audio via cobalt + Whisper
+            print("[youtube] captions unavailable, falling back to cobalt audio download", file=sys.stderr)
+
         jobs[job_id]["status"] = "downloading"
         audio_path, title = download_audio(url, job_id)
         run_transcription(job_id, audio_path, title, language)
