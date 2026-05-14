@@ -119,12 +119,16 @@ export function validateVideoUrl(url: string): string | null {
 }
 
 export async function checkBackendOnline(): Promise<boolean> {
-  try {
-    const res = await fetch("/health", { signal: AbortSignal.timeout(3000) });
-    return res.ok;
-  } catch {
-    return false;
+  // Render free tier cold-starts take up to 50s — retry 3 times with increasing timeouts
+  for (const timeout of [5000, 15000, 40000]) {
+    try {
+      const res = await fetch("/health", { signal: AbortSignal.timeout(timeout) });
+      if (res.ok) return true;
+    } catch {
+      // keep retrying
+    }
   }
+  return false;
 }
 
 export async function translateText(text: string, targetLang: string, apiKey: string): Promise<string> {

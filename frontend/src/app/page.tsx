@@ -282,7 +282,7 @@ export default function Home() {
                   <span className="gradient-text">OVNI</span> Transcript
                 </h1>
                 <p className="text-muted text-lg mt-2">
-                  TikTok · YouTube · Instagram · Facebook · Fichier local
+                  TikTok · YouTube · Instagram · Facebook · Local file
                 </p>
               </div>
 
