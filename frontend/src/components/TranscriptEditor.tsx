@@ -245,7 +245,7 @@ export function TranscriptEditor({ segments: initialSegments, title, language, j
     <div className="w-full">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-text truncate">{title}</h2>
+        <h2 className="text-xl md:text-2xl font-bold text-text truncate">{title}</h2>
         <div className="flex gap-3 mt-1.5 text-sm text-muted flex-wrap">
           <span>{wordCount} words</span>
           <span>·</span>
@@ -259,9 +259,9 @@ export function TranscriptEditor({ segments: initialSegments, title, language, j
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        {/* Vue + Recherche + Police */}
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
+        {/* View + Search + Edit + Font */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
           <div className="flex gap-0.5 p-1 bg-surface rounded-lg border border-border">
             <button onClick={() => setView("block")} title="Block text" className={clsx("flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all", view === "block" ? "bg-accent text-white" : "text-muted hover:text-text")}>
               <AlignLeft size={13} /> Block
@@ -315,7 +315,7 @@ export function TranscriptEditor({ segments: initialSegments, title, language, j
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 flex-shrink-0">
           {/* Translation */}
           <div className="relative" ref={translateMenuRef}>
             <button

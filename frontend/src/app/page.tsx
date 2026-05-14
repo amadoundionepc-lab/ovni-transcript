@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Upload, Link2, X, AlertCircle, ChevronDown, Trash2, Clock, Sparkles, List } from "lucide-react";
+import { Upload, Link2, X, AlertCircle, ChevronDown, Trash2, Clock, Sparkles, List, Menu } from "lucide-react";
 import clsx from "clsx";
 import { submitUrl, submitFile, pollJob, validateVideoUrl, checkBackendOnline } from "@/lib/api";
 import type { TranscriptResult } from "@/lib/api";
@@ -78,6 +78,7 @@ export default function Home() {
   const [batchUrls, setBatchUrls] = useState("");
   const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
   const [batchRunning, setBatchRunning] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -192,15 +193,20 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-bg flex flex-col">
       {/* Navbar */}
-      <nav className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-surface/80 backdrop-blur-sm sticky top-0 z-40">
-        <button onClick={reset} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
-          <OvniLogo />
-          <span className="font-bold text-lg tracking-tight">
-            <span className="gradient-text">OVNI</span>
-            <span className="text-text"> Transcript</span>
-          </span>
-        </button>
-        <div className="flex items-center gap-3">
+      <nav className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface/80 backdrop-blur-sm sticky top-0 z-40">
+        <div className="flex items-center gap-2">
+          <button onClick={() => setSidebarOpen(true)} className="md:hidden p-1.5 text-muted hover:text-text transition-colors">
+            <Menu size={20} />
+          </button>
+          <button onClick={reset} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <OvniLogo />
+            <span className="font-bold text-lg tracking-tight">
+              <span className="gradient-text">OVNI</span>
+              <span className="text-text"> Transcript</span>
+            </span>
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
           <span className="text-xs text-muted hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border">
             <Sparkles size={11} className="text-accent-light" />
             Whisper + LLaMA 3.1
@@ -216,11 +222,23 @@ export default function Home() {
         </div>
       )}
       <div className="flex flex-1 overflow-hidden">
+        {/* Mobile overlay */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={() => setSidebarOpen(false)} />
+        )}
+
         {/* Sidebar */}
-        <aside className="w-60 flex-shrink-0 border-r border-border flex flex-col bg-surface overflow-y-auto">
-          <div className="p-3 border-b border-border">
-            <button onClick={reset} className="w-full py-2.5 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-violet-600 transition-colors flex items-center justify-center gap-2">
+        <aside className={clsx(
+          "flex-shrink-0 border-r border-border flex flex-col bg-surface overflow-y-auto transition-transform duration-300 z-50",
+          "fixed inset-y-0 left-0 w-72 md:relative md:w-60 md:translate-x-0",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        )}>
+          <div className="p-3 border-b border-border flex items-center gap-2">
+            <button onClick={() => { reset(); setSidebarOpen(false); }} className="flex-1 py-2.5 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-violet-600 transition-colors flex items-center justify-center gap-2">
               <span className="text-lg leading-none">+</span> New transcription
+            </button>
+            <button onClick={() => setSidebarOpen(false)} className="md:hidden p-2 text-muted hover:text-text">
+              <X size={16} />
             </button>
           </div>
 
@@ -236,7 +254,7 @@ export default function Home() {
                 {history.map((entry) => (
                   <div
                     key={entry.id}
-                    onClick={() => openEntry(entry)}
+                    onClick={() => { openEntry(entry); setSidebarOpen(false); }}
                     className={clsx(
                       "group flex items-start justify-between gap-2 px-2.5 py-2.5 rounded-xl cursor-pointer transition-all",
                       activeId === entry.id
@@ -260,14 +278,14 @@ export default function Home() {
           </div>
         </aside>
 
-        {/* Zone principale */}
+        {/* Main content */}
         <main className="flex-1 overflow-y-auto">
           {result ? (
-            <div className="px-8 py-8 max-w-4xl mx-auto">
+            <div className="px-4 py-6 md:px-8 md:py-8 max-w-4xl mx-auto">
               <TranscriptEditor key={activeId ?? "current"} segments={result.segments} title={title} language={result.language} jobId={currentJobId ?? undefined} apiKey={apiKey} />
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center min-h-full px-8 py-10">
+            <div className="flex flex-col items-center justify-center min-h-full px-4 py-8 md:px-8 md:py-10">
               {/* Hero */}
               <div className="text-center mb-8 w-full max-w-2xl">
                 <div className="flex justify-center mb-5">
@@ -278,16 +296,16 @@ export default function Home() {
                     <div className="absolute -inset-1 rounded-2xl bg-accent/10 blur-lg -z-10" />
                   </div>
                 </div>
-                <h1 className="text-5xl font-extrabold text-text leading-tight mb-3">
+                <h1 className="text-4xl md:text-5xl font-extrabold text-text leading-tight mb-3">
                   <span className="gradient-text">OVNI</span> Transcript
                 </h1>
-                <p className="text-muted text-lg mt-2">
+                <p className="text-muted text-base md:text-lg mt-2">
                   TikTok · YouTube · Instagram · Facebook · Local file
                 </p>
               </div>
 
               {/* Card */}
-              <div className="w-full max-w-2xl bg-card border border-border rounded-2xl p-7 glow">
+              <div className="w-full max-w-2xl bg-card border border-border rounded-2xl p-4 md:p-7 glow">
                 {/* Tabs */}
                 <div className="flex gap-1 p-1 bg-bg rounded-xl mb-5">
                   {([["url", "Video link", Link2], ["file", "File", Upload], ["batch", "Batch", List]] as const).map(([t, label, Icon]) => (
@@ -295,12 +313,12 @@ export default function Home() {
                       key={t}
                       onClick={() => setTab(t as Tab)}
                       className={clsx(
-                        "flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-base font-medium transition-all",
+                        "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm md:text-base font-medium transition-all",
                         tab === t ? "bg-card text-text border border-border shadow-sm" : "text-muted hover:text-text"
                       )}
                     >
-                      <Icon size={16} />
-                      {label}
+                      <Icon size={15} />
+                      <span className="hidden sm:inline">{label}</span>
                     </button>
                   ))}
                 </div>
