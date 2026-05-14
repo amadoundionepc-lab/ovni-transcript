@@ -21,7 +21,6 @@ def download_audio(url: str, job_id: str):
     os.makedirs(out_path, exist_ok=True)
 
     ydl_opts = {
-        # Prefer m4a/webm audio — formats Groq supports natively without FFmpeg
         "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio[acodec!=none]/best[ext=mp4][acodec!=none]/best[acodec!=none]",
         "outtmpl": os.path.join(out_path, "audio.%(ext)s"),
         "quiet": True,
@@ -30,6 +29,11 @@ def download_audio(url: str, job_id: str):
         "retries": 3,
         "concurrent_fragment_downloads": 4,
         "buffersize": 1024 * 16,
+        # Bypass YouTube bot detection on server IPs
+        "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
+        "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36",
+        },
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
