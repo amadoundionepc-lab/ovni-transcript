@@ -57,12 +57,20 @@ const OvniLogo = () => (
   </svg>
 );
 
+function newCaptcha() {
+  const a = Math.floor(Math.random() * 9) + 1;
+  const b = Math.floor(Math.random() * 9) + 1;
+  return { a, b, answer: a + b };
+}
+
 export default function Home() {
   const [tab, setTab] = useState<Tab>("url");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [language, setLanguage] = useState("auto");
+  const [captcha, setCaptcha] = useState(newCaptcha);
+  const [captchaInput, setCaptchaInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
   const [elapsed, setElapsed] = useState(0);
@@ -115,7 +123,18 @@ export default function Home() {
     if (dropped) setFile(dropped);
   }, []);
 
+  const checkCaptcha = () => {
+    if (parseInt(captchaInput) !== captcha.answer) {
+      setError("Incorrect answer, please try again.");
+      setCaptcha(newCaptcha());
+      setCaptchaInput("");
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async () => {
+    if (!checkCaptcha()) return;
     if (tab === "url") {
       const urlError = validateVideoUrl(url);
       if (urlError) { setError(urlError); return; }
@@ -135,6 +154,7 @@ export default function Home() {
       const res = job.result!;
       const t = job.title || "Transcript";
       setResult(res); setTitle(t); setCurrentJobId(jobId);
+      setCaptcha(newCaptcha()); setCaptchaInput("");
       if (Notification.permission === "granted") {
         new Notification("Transcription complete ✓", { body: t, icon: "/favicon.ico" });
       } else if (Notification.permission !== "denied") {
@@ -155,6 +175,7 @@ export default function Home() {
   const canSubmit = !loading && (tab === "url" ? !!url.trim() : tab === "file" ? !!file : false);
 
   const handleBatch = async () => {
+    if (!checkCaptcha()) return;
     const urls = batchUrls.split("\n").map((u) => u.trim()).filter(Boolean);
     if (urls.length === 0) return;
     const items: BatchItem[] = urls.map((url) => ({ url, status: "pending" }));
@@ -300,7 +321,7 @@ export default function Home() {
                       key={t}
                       onClick={() => setTab(t as Tab)}
                       className={clsx(
-                        "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
+                        "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 focus:outline-none",
                         tab === t
                           ? "bg-accent/20 text-accent-light border border-accent/30"
                           : "text-muted hover:text-text hover:bg-white/[0.04]"
@@ -406,6 +427,24 @@ export default function Home() {
                   </select>
                   <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
                 </div>
+
+                {/* Captcha */}
+                {!loading && (
+                  <div className="flex items-center gap-3 mb-4 px-4 py-3 bg-bg border border-border rounded-xl">
+                    <span className="text-sm text-muted flex-shrink-0">
+                      {captcha.a} + {captcha.b} =
+                    </span>
+                    <input
+                      type="number"
+                      value={captchaInput}
+                      onChange={(e) => setCaptchaInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && canSubmit && handleSubmit()}
+                      placeholder="?"
+                      className="w-16 bg-transparent text-text text-sm text-center focus:outline-none border-b border-border focus:border-accent transition-colors"
+                    />
+                    <span className="text-xs text-muted ml-auto">Anti-spam</span>
+                  </div>
+                )}
 
                 {/* Error */}
                 {error && (
