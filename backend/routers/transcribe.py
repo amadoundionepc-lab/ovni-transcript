@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 
 from services.downloader import download_audio, is_supported_url
 from services.transcriber import transcribe_audio
+from services.youtube_transcript import fetch_youtube_transcript
 
 router = APIRouter()
 
@@ -32,6 +33,29 @@ def run_transcription(job_id: str, audio_path: str, title: str, language: str):
 
 def run_url_job(job_id: str, url: str, language: str):
     try:
+        # For YouTube, try native transcript API first (bypasses bot detection)
+        is_youtube = any(d in url for d in ["youtube.com", "youtu.be"])
+        if is_youtube:
+            jobs[job_id]["status"] = "transcribing"
+            result = fetch_youtube_transcript(url, language)
+            if result:
+                # Get video title via YouTube oEmbed (public, no auth needed)
+                title = "YouTube video"
+                try:
+                    import requests
+                    r = requests.get(
+                        "https://www.youtube.com/oembed",
+                        params={"url": url, "format": "json"},
+                        timeout=5,
+                    )
+                    if r.ok:
+                        title = r.json().get("title", title)
+                except Exception:
+                    pass
+                jobs[job_id].update({"status": "done", "result": result, "title": title})
+                return
+
+        # Fallback: download audio and transcribe with Whisper
         jobs[job_id]["status"] = "downloading"
         audio_path, title = download_audio(url, job_id)
         run_transcription(job_id, audio_path, title, language)
