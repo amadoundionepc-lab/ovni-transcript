@@ -1,4 +1,5 @@
 import re
+import sys
 from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
 
 
@@ -84,7 +85,9 @@ def fetch_youtube_transcript(url: str, language: str = "auto") -> dict | None:
             "segments": segments,
         }
 
-    except (NoTranscriptFound, TranscriptsDisabled):
+    except (NoTranscriptFound, TranscriptsDisabled) as e:
+        print(f"[youtube_transcript] no transcript: {e}", file=sys.stderr)
         return None
-    except Exception:
+    except Exception as e:
+        print(f"[youtube_transcript] unexpected error: {e}", file=sys.stderr)
         return None

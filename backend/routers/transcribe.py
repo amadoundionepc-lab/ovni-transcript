@@ -1,4 +1,5 @@
 import os
+import sys
 import uuid
 import shutil
 from fastapi import APIRouter, UploadFile, File, Form, BackgroundTasks, HTTPException
@@ -33,13 +34,12 @@ def run_transcription(job_id: str, audio_path: str, title: str, language: str):
 
 def run_url_job(job_id: str, url: str, language: str):
     try:
-        # For YouTube, try native transcript API first (bypasses bot detection)
         is_youtube = any(d in url for d in ["youtube.com", "youtu.be"])
         if is_youtube:
             jobs[job_id]["status"] = "transcribing"
             result = fetch_youtube_transcript(url, language)
+            print(f"[youtube] transcript result: {'ok' if result else 'None'}", file=sys.stderr)
             if result:
-                # Get video title via YouTube oEmbed (public, no auth needed)
                 title = "YouTube video"
                 try:
                     import requests
@@ -53,9 +53,15 @@ def run_url_job(job_id: str, url: str, language: str):
                 except Exception:
                     pass
                 jobs[job_id].update({"status": "done", "result": result, "title": title})
-                return
+            else:
+                jobs[job_id]["status"] = "error"
+                jobs[job_id]["error"] = (
+                    "This YouTube video has no available captions. "
+                    "Please download the video and use the File tab instead."
+                )
+            return
 
-        # Fallback: download audio and transcribe with Whisper
+        # Non-YouTube: download audio and transcribe with Whisper
         jobs[job_id]["status"] = "downloading"
         audio_path, title = download_audio(url, job_id)
         run_transcription(job_id, audio_path, title, language)
