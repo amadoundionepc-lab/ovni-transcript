@@ -1,12 +1,14 @@
+import os
 import re
 import sys
+import tempfile
 import requests
 
 INVIDIOUS_INSTANCES = [
+    "https://inv.thepixora.com",
     "https://inv.nadeko.net",
     "https://invidious.fdn.fr",
     "https://yt.artemislena.eu",
-    "https://iv.datura.network",
 ]
 
 
@@ -77,63 +79,100 @@ def _parse_vtt(vtt: str) -> list:
     return segments
 
 
-def _try_instance(instance: str, video_id: str, language: str) -> dict | None:
+def _try_invidious(video_id: str, language: str) -> dict | None:
+    for instance in INVIDIOUS_INSTANCES:
+        try:
+            r = requests.get(
+                f"{instance}/api/v1/captions/{video_id}",
+                timeout=8,
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            if not r.ok:
+                continue
+            data = r.json()
+            captions = data.get("captions", [])
+            if not captions:
+                continue
+
+            label = None
+            if language and language != "auto":
+                for c in captions:
+                    if c.get("languageCode", "").startswith(language):
+                        label = c["label"]
+                        break
+            if not label:
+                label = captions[0]["label"]
+
+            vtt_r = requests.get(
+                f"{instance}/api/v1/captions/{video_id}",
+                params={"label": label},
+                timeout=10,
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            if not vtt_r.ok:
+                continue
+
+            segments = _parse_vtt(vtt_r.text)
+            if not segments:
+                continue
+
+            lang_code = next(
+                (c.get("languageCode", "unknown") for c in captions if c["label"] == label),
+                "unknown",
+            )
+            print(f"[youtube_transcript] invidious success via {instance}", file=sys.stderr)
+            return {
+                "text": " ".join(s["text"] for s in segments),
+                "language": lang_code,
+                "segments": segments,
+            }
+        except Exception as e:
+            print(f"[youtube_transcript] invidious {instance} failed: {e}", file=sys.stderr)
+
+    return None
+
+
+def _try_ytdlp_subs(url: str, language: str) -> dict | None:
+    """Download subtitles only via yt-dlp (no audio download) — much lighter, less blocked."""
     try:
-        # Get caption list
-        r = requests.get(
-            f"{instance}/api/v1/captions/{video_id}",
-            timeout=8,
-            headers={"User-Agent": "Mozilla/5.0"},
-        )
-        if not r.ok:
-            return None
-        data = r.json()
-        captions = data.get("captions", [])
-        if not captions:
-            return None
+        import yt_dlp
 
-        # Pick best caption track
-        label = None
-        if language and language != "auto":
-            for c in captions:
-                if c.get("languageCode", "").startswith(language):
-                    label = c["label"]
-                    break
-        if not label:
-            # prefer auto-generated in any language
-            for c in captions:
-                label = c["label"]
-                break
+        with tempfile.TemporaryDirectory() as tmpdir:
+            langs = [language] if language and language != "auto" else ["en", "fr", "es", "de", "pt", "ar", "zh", "ja", "ko", "ru"]
+            ydl_opts = {
+                "writeautomaticsub": True,
+                "writesubtitles": True,
+                "subtitleslangs": langs,
+                "skip_download": True,
+                "outtmpl": os.path.join(tmpdir, "video"),
+                "quiet": True,
+                "no_warnings": True,
+                "extractor_args": {"youtube": {"player_client": ["tv_embedded", "ios", "android"]}},
+                "http_headers": {
+                    "User-Agent": "com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)",
+                },
+            }
 
-        if not label:
-            return None
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
 
-        # Fetch VTT content
-        vtt_r = requests.get(
-            f"{instance}/api/v1/captions/{video_id}",
-            params={"label": label},
-            timeout=10,
-            headers={"User-Agent": "Mozilla/5.0"},
-        )
-        if not vtt_r.ok:
-            return None
-
-        segments = _parse_vtt(vtt_r.text)
-        if not segments:
-            return None
-
-        lang_code = next(
-            (c.get("languageCode", "unknown") for c in captions if c["label"] == label),
-            "unknown",
-        )
-        return {
-            "text": " ".join(s["text"] for s in segments),
-            "language": lang_code,
-            "segments": segments,
-        }
+            for fname in os.listdir(tmpdir):
+                if fname.endswith(".vtt"):
+                    with open(os.path.join(tmpdir, fname), "r", encoding="utf-8") as f:
+                        content = f.read()
+                    segments = _parse_vtt(content)
+                    if segments:
+                        lang_code = fname.split(".")[-2] if fname.count(".") >= 2 else "unknown"
+                        print(f"[youtube_transcript] yt-dlp subs success: {fname}", file=sys.stderr)
+                        return {
+                            "text": " ".join(s["text"] for s in segments),
+                            "language": lang_code,
+                            "segments": segments,
+                        }
     except Exception as e:
-        print(f"[youtube_transcript] {instance} failed: {e}", file=sys.stderr)
-        return None
+        print(f"[youtube_transcript] yt-dlp subs failed: {e}", file=sys.stderr)
+
+    return None
 
 
 def fetch_youtube_transcript(url: str, language: str = "auto") -> dict | None:
@@ -141,11 +180,15 @@ def fetch_youtube_transcript(url: str, language: str = "auto") -> dict | None:
     if not video_id:
         return None
 
-    for instance in INVIDIOUS_INSTANCES:
-        result = _try_instance(instance, video_id, language)
-        if result:
-            print(f"[youtube_transcript] success via {instance}", file=sys.stderr)
-            return result
+    # Try Invidious first
+    result = _try_invidious(video_id, language)
+    if result:
+        return result
 
-    print("[youtube_transcript] all instances failed", file=sys.stderr)
+    # Fallback: yt-dlp subtitle-only download
+    result = _try_ytdlp_subs(url, language)
+    if result:
+        return result
+
+    print("[youtube_transcript] all methods failed", file=sys.stderr)
     return None
