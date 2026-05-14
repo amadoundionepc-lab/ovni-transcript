@@ -3,7 +3,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
@@ -35,12 +35,14 @@ def health():
 class TranslateRequest(BaseModel):
     text: str
     target_lang: str
-    api_key: str
 
 
 @app.post("/api/translate")
 async def translate(req: TranslateRequest):
-    client = Groq(api_key=req.api_key)
+    api_key = os.getenv("GROQ_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY not configured on server.")
+    client = Groq(api_key=api_key)
     response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=[{

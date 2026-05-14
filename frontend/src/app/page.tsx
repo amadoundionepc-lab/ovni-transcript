@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Upload, Link2, X, AlertCircle, ChevronDown, Trash2, Clock, Sparkles, List, Menu } from "lucide-react";
+import { Upload, Link2, X, AlertCircle, ChevronDown, Trash2, Clock, List, Menu } from "lucide-react";
 import clsx from "clsx";
 import { submitUrl, submitFile, pollJob, validateVideoUrl, checkBackendOnline } from "@/lib/api";
 import type { TranscriptResult } from "@/lib/api";
 import { TranscriptEditor } from "@/components/TranscriptEditor";
 import { PlatformIcon } from "@/components/PlatformIcon";
-import { ApiKeyButton } from "@/components/ApiKeyModal";
 import { saveToHistory, getHistory, deleteFromHistory, formatDate } from "@/lib/history";
 import type { HistoryEntry } from "@/lib/history";
 
@@ -82,16 +81,9 @@ export default function Home() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem("groq_api_key");
-    if (saved) setApiKey(saved);
     setHistory(getHistory());
     checkBackendOnline().then((ok) => setBackendOffline(!ok));
   }, []);
-
-  const saveApiKey = (key: string) => {
-    setApiKey(key);
-    localStorage.setItem("groq_api_key", key);
-  };
 
   const openEntry = (entry: HistoryEntry) => {
     setResult({ text: entry.text, language: entry.language, segments: entry.segments });
@@ -125,7 +117,6 @@ export default function Home() {
   }, []);
 
   const handleSubmit = async () => {
-    if (!apiKey.trim()) { setError("Enter your Groq API key in the top right."); return; }
     if (tab === "url") {
       const urlError = validateVideoUrl(url);
       if (urlError) { setError(urlError); return; }
@@ -136,10 +127,10 @@ export default function Home() {
     try {
       let jobId: string;
       if (tab === "url") {
-        jobId = await submitUrl(url.trim(), apiKey, language);
+        jobId = await submitUrl(url.trim(), language);
       } else {
         if (!file) throw new Error("Please select a file");
-        jobId = await submitFile(file, apiKey, language);
+        jobId = await submitFile(file, language);
       }
       const job = await pollJob(jobId, (s) => setStatus(STATUS_LABELS[s] || s));
       const res = job.result!;
@@ -165,7 +156,6 @@ export default function Home() {
   const canSubmit = !loading && (tab === "url" ? !!url.trim() : tab === "file" ? !!file : false);
 
   const handleBatch = async () => {
-    if (!apiKey.trim()) { setError("Enter your Groq API key in the top right."); return; }
     const urls = batchUrls.split("\n").map((u) => u.trim()).filter(Boolean);
     if (urls.length === 0) return;
     const items: BatchItem[] = urls.map((url) => ({ url, status: "pending" }));
@@ -175,7 +165,7 @@ export default function Home() {
     for (let i = 0; i < items.length; i++) {
       setBatchItems((prev) => prev.map((it, idx) => idx === i ? { ...it, status: "processing" } : it));
       try {
-        const jobId = await submitUrl(items[i].url, apiKey, language);
+        const jobId = await submitUrl(items[i].url, language);
         const job = await pollJob(jobId, () => {});
         const res = job.result!;
         const t = job.title || "Transcript";
@@ -208,10 +198,8 @@ export default function Home() {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border">
-            <Sparkles size={11} className="text-accent-light" />
-            Whisper + LLaMA 3.1
+            Powered by Groq
           </span>
-          <ApiKeyButton apiKey={apiKey} onChange={saveApiKey} />
         </div>
       </nav>
 
@@ -282,7 +270,7 @@ export default function Home() {
         <main className="flex-1 overflow-y-auto">
           {result ? (
             <div className="px-4 py-6 md:px-8 md:py-8 max-w-4xl mx-auto">
-              <TranscriptEditor key={activeId ?? "current"} segments={result.segments} title={title} language={result.language} jobId={currentJobId ?? undefined} apiKey={apiKey} />
+              <TranscriptEditor key={activeId ?? "current"} segments={result.segments} title={title} language={result.language} jobId={currentJobId ?? undefined} />
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center min-h-full px-4 py-8 md:px-8 md:py-10">

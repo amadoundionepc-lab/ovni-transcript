@@ -13,21 +13,28 @@ TEMP_DIR = os.path.join(os.path.dirname(__file__), "..", "temp")
 jobs: dict = {}
 
 
-def run_transcription(job_id: str, audio_path: str, title: str, api_key: str, language: str):
+def _api_key() -> str:
+    key = os.getenv("GROQ_API_KEY", "")
+    if not key:
+        raise RuntimeError("GROQ_API_KEY not configured on server.")
+    return key
+
+
+def run_transcription(job_id: str, audio_path: str, title: str, language: str):
     try:
         jobs[job_id]["status"] = "transcribing"
-        result = transcribe_audio(audio_path, api_key=api_key, language=language)
+        result = transcribe_audio(audio_path, api_key=_api_key(), language=language)
         jobs[job_id].update({"status": "done", "result": result, "title": title, "audio_path": audio_path})
     except Exception as e:
         jobs[job_id]["status"] = "error"
         jobs[job_id]["error"] = str(e)
 
 
-def run_url_job(job_id: str, url: str, api_key: str, language: str):
+def run_url_job(job_id: str, url: str, language: str):
     try:
         jobs[job_id]["status"] = "downloading"
         audio_path, title = download_audio(url, job_id)
-        run_transcription(job_id, audio_path, title, api_key, language)
+        run_transcription(job_id, audio_path, title, language)
     except Exception as e:
         jobs[job_id]["status"] = "error"
         jobs[job_id]["error"] = str(e)
@@ -37,7 +44,6 @@ def run_url_job(job_id: str, url: str, api_key: str, language: str):
 async def transcribe_url(
     background_tasks: BackgroundTasks,
     url: str = Form(...),
-    api_key: str = Form(...),
     language: str = Form("auto"),
 ):
     if not is_supported_url(url):
@@ -45,7 +51,7 @@ async def transcribe_url(
 
     job_id = str(uuid.uuid4())
     jobs[job_id] = {"status": "queued", "url": url}
-    background_tasks.add_task(run_url_job, job_id, url, api_key, language)
+    background_tasks.add_task(run_url_job, job_id, url, language)
     return {"job_id": job_id}
 
 
@@ -53,7 +59,6 @@ async def transcribe_url(
 async def transcribe_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    api_key: str = Form(...),
     language: str = Form("auto"),
 ):
     job_id = str(uuid.uuid4())
@@ -69,7 +74,7 @@ async def transcribe_file(
 
     title = os.path.splitext(file.filename)[0]
     jobs[job_id] = {"status": "queued", "title": title}
-    background_tasks.add_task(run_transcription, job_id, audio_path, title, api_key, language)
+    background_tasks.add_task(run_transcription, job_id, audio_path, title, language)
     return {"job_id": job_id}
 
 

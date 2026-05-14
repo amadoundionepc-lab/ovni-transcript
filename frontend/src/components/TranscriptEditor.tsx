@@ -12,7 +12,6 @@ interface Props {
   title: string;
   language: string;
   jobId?: string;
-  apiKey?: string;
 }
 
 const LANGUAGES = [
@@ -33,7 +32,7 @@ function norm(w: string) {
   return w.toLowerCase().replace(/[^a-z0-9À-ɏ]/g, "");
 }
 
-export function TranscriptEditor({ segments: initialSegments, title, language, jobId, apiKey }: Props) {
+export function TranscriptEditor({ segments: initialSegments, title, language, jobId }: Props) {
   const [segments, setSegments] = useState<Segment[]>(initialSegments);
   const [view, setView] = useState<"block" | "segments">("block");
   const [blockText, setBlockText] = useState(initialSegments.map((s) => s.text).join(" "));
@@ -194,11 +193,10 @@ export function TranscriptEditor({ segments: initialSegments, title, language, j
   };
 
   const handleTranslate = async (lang: string) => {
-    if (!apiKey) return;
     setShowTranslateMenu(false);
     setTranslating(true);
     try {
-      const translated = await translateText(displayText, lang, apiKey);
+      const translated = await translateText(displayText, lang);
       setTranslatedText(translated);
     } catch (e) {
       alert("Translation error: " + (e as Error).message);
@@ -320,7 +318,7 @@ export function TranscriptEditor({ segments: initialSegments, title, language, j
           <div className="relative" ref={translateMenuRef}>
             <button
               onClick={() => setShowTranslateMenu((v) => !v)}
-              disabled={translating || !apiKey}
+              disabled={translating}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm text-muted hover:text-text hover:border-accent/50 transition-all disabled:opacity-40"
             >
               <Languages size={14} />

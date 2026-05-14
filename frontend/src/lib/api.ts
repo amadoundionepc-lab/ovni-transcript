@@ -30,10 +30,9 @@ export interface Job {
 
 const BASE = "/api";
 
-export async function submitUrl(url: string, apiKey: string, language: string): Promise<string> {
+export async function submitUrl(url: string, language: string): Promise<string> {
   const form = new FormData();
   form.append("url", url);
-  form.append("api_key", apiKey);
   form.append("language", language);
 
   const res = await fetch(`${BASE}/transcribe/url`, { method: "POST", body: form });
@@ -44,10 +43,9 @@ export async function submitUrl(url: string, apiKey: string, language: string): 
   return (await res.json()).job_id;
 }
 
-export async function submitFile(file: File, apiKey: string, language: string): Promise<string> {
+export async function submitFile(file: File, language: string): Promise<string> {
   const form = new FormData();
   form.append("file", file);
-  form.append("api_key", apiKey);
   form.append("language", language);
 
   const res = await fetch(`${BASE}/transcribe/file`, { method: "POST", body: form });
@@ -131,11 +129,11 @@ export async function checkBackendOnline(): Promise<boolean> {
   return false;
 }
 
-export async function translateText(text: string, targetLang: string, apiKey: string): Promise<string> {
+export async function translateText(text: string, targetLang: string): Promise<string> {
   const res = await fetch(`${BASE}/translate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, target_lang: targetLang, api_key: apiKey }),
+    body: JSON.stringify({ text, target_lang: targetLang }),
   });
   if (!res.ok) throw new Error("Translation error");
   return (await res.json()).text;
