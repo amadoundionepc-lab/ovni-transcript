@@ -300,12 +300,14 @@ export default function Home() {
                       key={t}
                       onClick={() => setTab(t as Tab)}
                       className={clsx(
-                        "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm md:text-base font-medium transition-all",
-                        tab === t ? "bg-card text-text border border-border shadow-sm" : "text-muted hover:text-text"
+                        "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
+                        tab === t
+                          ? "bg-accent/20 text-accent-light border border-accent/30"
+                          : "text-muted hover:text-text hover:bg-white/[0.04]"
                       )}
                     >
                       <Icon size={15} />
-                      <span className="hidden sm:inline">{label}</span>
+                      {label}
                     </button>
                   ))}
                 </div>
