@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import base64
 import tempfile
 import requests
 
@@ -132,10 +133,26 @@ def _try_invidious(video_id: str, language: str) -> dict | None:
     return None
 
 
+def _write_cookie_file() -> str | None:
+    b64 = os.getenv("YT_COOKIES_B64", "").strip()
+    if not b64:
+        return None
+    try:
+        data = base64.b64decode(b64).decode("utf-8")
+        f = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
+        f.write(data)
+        f.close()
+        return f.name
+    except Exception:
+        return None
+
+
 def _try_ytdlp_subs(url: str, language: str) -> dict | None:
     """Download subtitles only via yt-dlp (no audio download) — much lighter, less blocked."""
     try:
         import yt_dlp
+
+        cookie_file = _write_cookie_file()
 
         with tempfile.TemporaryDirectory() as tmpdir:
             langs = [language] if language and language != "auto" else ["en", "fr", "es", "de", "pt", "ar", "zh", "ja", "ko", "ru"]
@@ -152,9 +169,18 @@ def _try_ytdlp_subs(url: str, language: str) -> dict | None:
                     "User-Agent": "com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)",
                 },
             }
+            if cookie_file:
+                ydl_opts["cookiefile"] = cookie_file
 
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+            finally:
+                if cookie_file:
+                    try:
+                        os.unlink(cookie_file)
+                    except OSError:
+                        pass
 
             for fname in os.listdir(tmpdir):
                 if fname.endswith(".vtt"):
