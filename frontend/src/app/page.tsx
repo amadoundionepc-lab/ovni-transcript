@@ -71,6 +71,7 @@ export default function Home() {
   const [language, setLanguage] = useState("auto");
   const [captcha, setCaptcha] = useState(newCaptcha);
   const [captchaInput, setCaptchaInput] = useState("");
+  const [captchaPassed, setCaptchaPassed] = useState(() => sessionStorage.getItem("captcha_ok") === "1");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
   const [elapsed, setElapsed] = useState(0);
@@ -124,12 +125,15 @@ export default function Home() {
   }, []);
 
   const checkCaptcha = () => {
+    if (captchaPassed) return true;
     if (parseInt(captchaInput) !== captcha.answer) {
       setError("Incorrect answer, please try again.");
       setCaptcha(newCaptcha());
       setCaptchaInput("");
       return false;
     }
+    sessionStorage.setItem("captcha_ok", "1");
+    setCaptchaPassed(true);
     return true;
   };
 
@@ -154,7 +158,6 @@ export default function Home() {
       const res = job.result!;
       const t = job.title || "Transcript";
       setResult(res); setTitle(t); setCurrentJobId(jobId);
-      setCaptcha(newCaptcha()); setCaptchaInput("");
       if (Notification.permission === "granted") {
         new Notification("Transcription complete ✓", { body: t, icon: "/favicon.ico" });
       } else if (Notification.permission !== "denied") {
@@ -428,8 +431,8 @@ export default function Home() {
                   <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
                 </div>
 
-                {/* Captcha */}
-                {!loading && (
+                {/* Captcha — only shown once per session */}
+                {!loading && !captchaPassed && (
                   <div className="flex items-center gap-3 mb-4 px-4 py-3 bg-bg border border-border rounded-xl">
                     <span className="text-sm text-muted flex-shrink-0">
                       {captcha.a} + {captcha.b} =
