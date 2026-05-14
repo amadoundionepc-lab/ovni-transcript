@@ -1,4 +1,6 @@
 import os
+import base64
+import tempfile
 import yt_dlp
 
 TEMP_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "temp"))
@@ -16,9 +18,26 @@ def is_supported_url(url: str) -> bool:
     return any(domain in url for domain in SUPPORTED_DOMAINS)
 
 
+def _write_cookie_file() -> str | None:
+    """Decode YT_COOKIES_B64 env var and write to a temp file. Returns path or None."""
+    b64 = os.getenv("YT_COOKIES_B64", "").strip()
+    if not b64:
+        return None
+    try:
+        data = base64.b64decode(b64).decode("utf-8")
+        f = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False)
+        f.write(data)
+        f.close()
+        return f.name
+    except Exception:
+        return None
+
+
 def download_audio(url: str, job_id: str):
     out_path = os.path.join(TEMP_DIR, job_id)
     os.makedirs(out_path, exist_ok=True)
+
+    cookie_file = _write_cookie_file()
 
     ydl_opts = {
         "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio[acodec!=none]/best[ext=mp4][acodec!=none]/best[acodec!=none]",
@@ -29,16 +48,25 @@ def download_audio(url: str, job_id: str):
         "retries": 3,
         "concurrent_fragment_downloads": 4,
         "buffersize": 1024 * 16,
-        # Bypass YouTube bot detection on server IPs
         "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
         "http_headers": {
             "User-Agent": "Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.91 Mobile Safari/537.36",
         },
     }
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        title = info.get("title", "video")
+    if cookie_file:
+        ydl_opts["cookiefile"] = cookie_file
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            title = info.get("title", "video")
+    finally:
+        if cookie_file:
+            try:
+                os.unlink(cookie_file)
+            except OSError:
+                pass
 
     # Find any downloaded audio file
     for fname in os.listdir(out_path):
