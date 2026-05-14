@@ -62,7 +62,6 @@ export default function Home() {
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [apiKey, setApiKey] = useState("");
   const [language, setLanguage] = useState("auto");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
